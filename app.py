@@ -3,11 +3,14 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from flask_bcrypt import Bcrypt
 import sqlite3
 from sentiment import predict_sentiment
-from db import get_db_connection
+from db import get_db_connection, init_db
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your_secret_key_here'
 bcrypt = Bcrypt(app)
+
+# Ensure database is initialized even when running under gunicorn
+init_db()
 
 movies = [
     {'id': 'm1', 'title': 'Inception', 'poster': 'https://image.tmdb.org/t/p/w1280/8IB2e4r4oVhHnANbnm7O3Tj6tF8.jpg'},
