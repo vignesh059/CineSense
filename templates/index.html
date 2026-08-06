@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h1>Trending Movies</h1>
+    <p>Submit your reviews and see what the world thinks based on our AI Sentiment Analysis.</p>
+</div>
+
+<div class="movie-grid">
+    {% for movie in movies %}
+    <div class="movie-card">
+        <img src="{{ movie.poster }}" alt="{{ movie.title }} Poster" class="poster">
+        <div class="card-content">
+            <h2 class="movie-title">{{ movie.title }}</h2>
+            
+            {% if stats[movie.id].has_reviewed %}
+            <div class="stats-container">
+                <div class="stat-box positive">
+                    <span class="emoji">😊</span>
+                    <span class="count">{{ stats[movie.id].positive }}</span>
+                    <span class="label">Positive</span>
+                </div>
+                <div class="stat-box negative">
+                    <span class="emoji">😞</span>
+                    <span class="count">{{ stats[movie.id].negative }}</span>
+                    <span class="label">Negative</span>
+                </div>
+            </div>
+            <p class="reviewed-msg">You have reviewed this movie. Thank you for your feedback!</p>
+            {% else %}
+            <p class="hidden-stats-msg">Submit a review to reveal the global sentiment stats!</p>
+            <form action="{{ url_for('submit_review') }}" method="POST" class="review-form">
+                <input type="hidden" name="movie_id" value="{{ movie.id }}">
+                <textarea name="review_text" placeholder="Write your review here..." rows="3" required></textarea>
+                <button type="submit" class="btn btn-primary full-width">Submit Review</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
