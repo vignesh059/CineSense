@@ -9,31 +9,41 @@ def get_db_connection():
     return conn
 
 def init_db():
-    if not os.path.exists(DATABASE):
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL
-            )
-        ''')
-        
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS reviews (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                movie_id TEXT NOT NULL,
-                review_text TEXT NOT NULL,
-                sentiment TEXT NOT NULL,
-                FOREIGN KEY (user_id) REFERENCES users (id)
-            )
-        ''')
-        
-        conn.commit()
-        conn.close()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL
+        )
+    ''')
+    
+    # Using IF NOT EXISTS. If you want to force recreate, you'd need to drop it,
+    # but let's just make sure the table has the right columns or is recreated.
+    # We can check if 'rnn_sentiment' exists, if not, drop the table and recreate.
+    
+    cursor.execute("PRAGMA table_info(reviews)")
+    columns = [col['name'] for col in cursor.fetchall()]
+    if columns and 'rnn_sentiment' not in columns:
+        print("Schema changed. Dropping old reviews table...")
+        cursor.execute("DROP TABLE reviews")
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS reviews (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            movie_id TEXT NOT NULL,
+            review_text TEXT NOT NULL,
+            rnn_sentiment TEXT NOT NULL,
+            lstm_sentiment TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
 
 if __name__ == '__main__':
     init_db()

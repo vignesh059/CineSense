@@ -4,6 +4,11 @@
 <div class="dashboard-header">
     <h1>Trending Movies</h1>
     <p>Submit your reviews and see what the world thinks based on our AI Sentiment Analysis.</p>
+    
+    <div class="accuracies-box" style="margin-top: 20px; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; display: inline-block;">
+        <h3>Model Accuracies</h3>
+        <p><strong>RNN:</strong> {{ accuracies.get('RNN', 'N/A') }}% | <strong>LSTM:</strong> {{ accuracies.get('LSTM', 'N/A') }}%</p>
+    </div>
 </div>
 
 <div class="movie-grid">
@@ -15,6 +20,7 @@
             
             {% if stats[movie.id].has_reviewed %}
             <div class="stats-container">
+                <p style="text-align: center; width: 100%; margin-bottom: 5px;">Aggregate Sentiment (LSTM)</p>
                 <div class="stat-box positive">
                     <span class="emoji">😊</span>
                     <span class="count">{{ stats[movie.id].positive }}</span>

@@ -1,8 +1,9 @@
 import os
+import json
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_bcrypt import Bcrypt
 import sqlite3
-from sentiment import predict_sentiment
+from sentiment import predict_sentiment_with_confidence
 from db import get_db_connection, init_db
 
 app = Flask(__name__)
@@ -23,6 +24,12 @@ def home():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
+    # Load model accuracies
+    accuracies = {"RNN": "N/A", "LSTM": "N/A"}
+    if os.path.exists('model_accuracies.json'):
+        with open('model_accuracies.json', 'r') as f:
+            accuracies = json.load(f)
+
     # Fetch review counts for movies
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -33,17 +40,18 @@ def home():
         cursor.execute("SELECT 1 FROM reviews WHERE user_id = ? AND movie_id = ?", (session['user_id'], movie['id']))
         has_reviewed = cursor.fetchone() is not None
 
-        # Fetch sentiment counts
-        cursor.execute("SELECT sentiment, COUNT(*) as count FROM reviews WHERE movie_id = ? GROUP BY sentiment", (movie['id'],))
+        # Fetch sentiment counts (we'll count RNN as primary for stats, or both)
+        # To keep it simple, we can display counts based on the LSTM model (often more accurate)
+        cursor.execute("SELECT lstm_sentiment, COUNT(*) as count FROM reviews WHERE movie_id = ? GROUP BY lstm_sentiment", (movie['id'],))
         rows = cursor.fetchall()
         
         pos_count = 0
         neg_count = 0
         for row in rows:
-            if "Positive" in row['sentiment']:
-                pos_count = row['count']
+            if "Positive" in row['lstm_sentiment']:
+                pos_count += row['count']
             else:
-                neg_count = row['count']
+                neg_count += row['count']
         
         movie_stats[movie['id']] = {
             'positive': pos_count, 
@@ -53,7 +61,7 @@ def home():
     
     conn.close()
     
-    return render_template('index.html', movies=movies, stats=movie_stats, username=session.get('username'))
+    return render_template('index.html', movies=movies, stats=movie_stats, accuracies=accuracies, username=session.get('username'))
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -117,16 +125,21 @@ def submit_review():
         flash('Review cannot be empty.', 'danger')
         return redirect(url_for('home'))
         
-    sentiment = predict_sentiment(review_text)
+    predictions = predict_sentiment_with_confidence(review_text)
+    
+    rnn_label = predictions["RNN"][0]
+    rnn_conf = predictions["RNN"][1]
+    lstm_label = predictions["LSTM"][0]
+    lstm_conf = predictions["LSTM"][1]
     
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO reviews (user_id, movie_id, review_text, sentiment) VALUES (?, ?, ?, ?)",
-                   (session['user_id'], movie_id, review_text, sentiment))
+    cursor.execute("INSERT INTO reviews (user_id, movie_id, review_text, rnn_sentiment, lstm_sentiment) VALUES (?, ?, ?, ?, ?)",
+                   (session['user_id'], movie_id, review_text, rnn_label, lstm_label))
     conn.commit()
     conn.close()
     
-    flash(f'Review submitted! Sentiment: {sentiment}', 'success')
+    flash(f'Review submitted! RNN: {rnn_label} ({rnn_conf:.0f}%) | LSTM: {lstm_label} ({lstm_conf:.0f}%)', 'success')
     return redirect(url_for('home'))
 
 if __name__ == '__main__':
